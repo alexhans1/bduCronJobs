@@ -1,0 +1,194 @@
+const sgMail = require("@sendgrid/mail");
+sgMail.setApiKey(process.env.SENDGRID_KEY);
+
+let Bookshelf;
+const knex = require("knex")({
+  client: "mysql",
+  connection: {
+    host: "us-cdbr-iron-east-03.cleardb.net",
+    user: "bb41eedfd379a8",
+    password: process.env.clearDB_password,
+    database: "heroku_9b6f95eb7a9adf8",
+    charset: "utf8"
+  },
+  migrations: {
+    tableName: "knex_migrations"
+  }
+}); // require knex query binder
+Bookshelf = require("bookshelf")(knex); // require Bookshelf ORM Framework
+
+// DEFINE MODELS
+const Models = require("./bookshelfModels.js")(Bookshelf);
+
+// GENERATE EMAIL ARRAY
+const successIDs = [];
+
+let totalErrors = 0;
+
+async function buildEmailArr() {
+  const emailArr = {};
+  try {
+    const result = await knex.raw(
+      "select u.id as userId, u.vorname, u.name, u.email, t.name as tournamentName, r.price_owed - r.price_paid as debt, r.id as registrationId from users as u join tournaments_users r on r.user_id = u.id join tournaments as t on t.id = r.tournament_id where u.last_mail < '2019-07-19' and r.price_paid is not null and r.price_owed is not null and r.price_owed != r.price_paid limit 10;"
+    );
+    const debtfulRegistrations = JSON.parse(JSON.stringify(result))[0];
+    return debtfulRegistrations.reduce(
+      (
+        emailObject,
+        { userId, vorname, name, email, tournamentName, debt, registrationId },
+        i
+      ) => {
+        // add user to emailObject if not yet there
+        if (!(userId in emailObject)) {
+          emailObject[userId] = {
+            vorname,
+            name,
+            email,
+            tournaments: [],
+            total_debt: 0,
+            transaction_purpose: "Xu6F"
+          };
+        }
+        // add the tournament
+        emailObject[userId].tournaments.push({
+          name: tournamentName,
+          debt: Math.round(debt * 100) / 100
+        });
+        // add debt to user's total debt
+        emailObject[userId].total_debt += Math.round(debt * 100) / 100;
+        // add reg id to transaction_purpose
+        emailObject[userId].transaction_purpose += `${registrationId}fP4x`;
+
+        // if last item return array instead of object
+        if (i === debtfulRegistrations.length - 1) {
+          return Object.keys(emailObject).reduce((acc, id) => {
+            if (emailObject[id].total_debt > 0)
+              return [
+                ...acc,
+                {
+                  id,
+                  ...emailObject[id],
+                  transaction_purpose: emailObject[id].tournaments
+                    .reduce(
+                      (purpose, { name }) =>
+                        purpose + ` ${name.substring(0, 20)},`,
+                      emailObject[id].transaction_purpose + "gT7u"
+                    )
+                    .slice(0, -1)
+                    .substring(0, 140)
+                }
+              ];
+            return acc;
+          }, []);
+        }
+        return emailObject;
+      },
+      {}
+    );
+  } catch (ex) {
+    console.error(ex);
+    return [];
+  }
+}
+
+async function sendDebtMails(emailArr) {
+  if (!emailArr.length) {
+    console.log("NO EMAILS TO SEND\n");
+    return;
+  }
+
+  // SEND OUT EMAILS
+  const messageArr = emailArr.map(function(obj) {
+    let content =
+      `${"" + "Hi "}${obj.vorname},<br><br>` +
+      `You have debt to the BDU for the following tournaments:<br><br>` +
+      `<table>`;
+    obj.tournaments.forEach(function(tournament) {
+      content = `${content}<tr><th align="left">${tournament.name}</th><td>${(
+        Math.round(tournament.debt * 100) / 100
+      ).toFixed(2)}€</td></tr>`;
+    });
+    content =
+      `${content}<tr><th align="left">Total</th><td><b>${(
+        Math.round(obj.total_debt * 100) / 100
+      ).toFixed(2)}€</b></td></tr>` +
+      `</table>` +
+      `<br>BDU Bank Info:<br>` +
+      `<table>` +
+      `<tr><th align="left">Recipient</th><td>Berlin Debating Union e.V.</td></tr>` +
+      `<tr><th align="left">IBAN</th><td>DE36 1203 0000 1020 1051 26</td></tr>` +
+      `<tr><th align="left">Institute</th><td>DEUTSCHE KREDITBANK BERLIN</td></tr>` +
+      `<tr><th align="left">Transaction purpose (Verwendungszweck)</th><td>${
+        obj.transaction_purpose
+      }</td></tr>` +
+      `</table><br><br>` +
+      `<span style="color: red"><b>Important:</b> Please include the transaction purpose in your transfer!</span><br><br>` +
+      `It´s possible to pay your debt by installments (Ratenzahlung). Just email me at ` +
+      `<a href="mailto:finanzen@debating.de" target="_top">finanzen@debating.de</a>.<br>` +
+      `You can always check your finances at <a href="https://members.debating.de">https://members.debating.de</a>.<br>` +
+      `If you have questions regarding your tournaments please talk to me or other BDU board members.<br>` +
+      `Best wishes<br>${process.env.finance_board_member}`;
+
+    return {
+      to: obj.email,
+      from: "finanzen@debating.de",
+      subject: "BDU Tournament Debts",
+      html: content
+    };
+  });
+
+  try {
+    const responses = await Promise.all(
+      messageArr.map(msg => sgMail.send(msg))
+    );
+    responses.forEach((response, i) => {
+      if (response[0].statusCode !== 202) {
+        console.error("Error response received");
+        console.error(response.error);
+        totalErrors++;
+      } else {
+        console.info(
+          `\nSent email to ${emailArr[i].vorname} ${emailArr[i].name}.\n`
+        );
+        successIDs.push(emailArr[i].id);
+      }
+    });
+  } catch (ex) {
+    console.error(ex);
+    totalErrors++;
+  }
+}
+
+async function setLastMail() {
+  if (successIDs.length) {
+    console.log("Length of successIDs Array:", successIDs.length);
+
+    try {
+      const x = await Models.User.where("id", "IN", successIDs).save(
+        { last_mail: new Date() },
+        { patch: true }
+      );
+      console.log(x.toJSON());
+      console.log("Successfully saved new last mail date.\n");
+    } catch (ex) {
+      console.error(ex);
+    }
+  }
+}
+
+function logSummary(emailArr) {
+  console.log("\n ✔✔✔ Finished Sending Debt Emails ✔✔✔ \n");
+  if (emailArr.length) {
+    console.log(`Tried to send ${emailArr.length} emails`);
+    console.log(`Success: ${successIDs.length}`);
+    console.log(`Errors: ${totalErrors}`);
+  }
+}
+
+exports.handler = async function execute() {
+  console.log("\n ✔✔✔ Sending out Debt Emails ✔✔✔ \n");
+  const emailArr = await buildEmailArr();
+  await sendDebtMails(emailArr);
+  await setLastMail();
+  logSummary(emailArr);
+};
