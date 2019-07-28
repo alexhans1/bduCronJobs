@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "deploy": "zip -r ./clubDebtService.zip . && aws lambda update-function-code --function-name bduSaveDebtService --zip-file fileb://clubDebtService.zip && rm ./clubDebtService.zip",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
