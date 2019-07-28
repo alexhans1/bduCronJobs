@@ -1,0 +1,7 @@
+.DS_Store
+/builds
+/node_modules
+.idea
+.vscode
+.env
+run*.js
