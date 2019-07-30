@@ -99,41 +99,17 @@ async function sendDebtMails(emailArr) {
 
   // SEND OUT EMAILS
   const messageArr = emailArr.map(function(obj) {
-    let content =
-      `${"" + "Hi "}${obj.vorname},<br><br>` +
-      `You have debt to the BDU for the following tournaments:<br><br>` +
-      `<table>`;
-    obj.tournaments.forEach(function(tournament) {
-      content = `${content}<tr><th align="left">${tournament.name}</th><td>${(
-        Math.round(tournament.debt * 100) / 100
-      ).toFixed(2)}€</td></tr>`;
-    });
-    content =
-      `${content}<tr><th align="left">Total</th><td><b>${(
-        Math.round(obj.total_debt * 100) / 100
-      ).toFixed(2)}€</b></td></tr>` +
-      `</table>` +
-      `<br>BDU Bank Info:<br>` +
-      `<table>` +
-      `<tr><th align="left">Recipient</th><td>Berlin Debating Union e.V.</td></tr>` +
-      `<tr><th align="left">IBAN</th><td>DE36 1203 0000 1020 1051 26</td></tr>` +
-      `<tr><th align="left">Institute</th><td>DEUTSCHE KREDITBANK BERLIN</td></tr>` +
-      `<tr><th align="left">Transaction purpose (Verwendungszweck)</th><td>${
-        obj.transaction_purpose
-      }</td></tr>` +
-      `</table><br><br>` +
-      `<span style="color: red"><b>Important:</b> Please include the transaction purpose in your transfer!</span><br><br>` +
-      `It´s possible to pay your debt by installments (Ratenzahlung). Just email me at ` +
-      `<a href="mailto:finanzen@debating.de" target="_top">finanzen@debating.de</a>.<br>` +
-      `You can always check your finances at <a href="https://members.debating.de">https://members.debating.de</a>.<br>` +
-      `If you have questions regarding your tournaments please talk to me or other BDU board members.<br>` +
-      `Best wishes<br>${process.env.finance_board_member}`;
-
     return {
       to: obj.email,
       from: "finanzen@debating.de",
       subject: "BDU Tournament Debts",
-      html: content
+      templateId: "d-e8c7e977147c40048b308050ecdff978",
+      dynamic_template_data: {
+        vorname: obj.vorname,
+        tournaments: obj.tournaments,
+        total_debt: obj.total_debt,
+        transaction_purpose: obj.transaction_purpose
+      }
     };
   });
 
@@ -144,7 +120,7 @@ async function sendDebtMails(emailArr) {
     responses.forEach((response, i) => {
       if (response[0].statusCode !== 202) {
         console.error("Error response received");
-        console.error(response.error);
+        console.error(response);
         totalErrors++;
       } else {
         console.info(
@@ -192,3 +168,19 @@ exports.handler = async function execute() {
   await setLastMail();
   logSummary(emailArr);
 };
+
+const msg = {
+  to: "alexander.hans.mail@gmail.com",
+  from: "sender@example.org",
+  templateId: "d-e8c7e977147c40048b308050ecdff978",
+  dynamic_template_data: {
+    vorname: "Alex",
+    tournaments: [
+      { name: "Turnier 1", debt: 23.3452 },
+      { name: "Turnier Long 132", debt: 43.384 }
+    ],
+    total_debt: 23.3452,
+    transaction_purpose: "cscchwgudgc7rfg8gf37fg378 Furnsrwick"
+  }
+};
+sgMail.send(msg);

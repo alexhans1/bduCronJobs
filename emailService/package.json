@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "deploy": "zip -r ./emailService.zip . && aws lambda update-function-code --function-name bduEmailService --zip-file fileb://builds/emailService.zip && rm ./emailService.zip",
+    "deploy": "zip -r ./emailService.zip . && aws lambda update-function-code --function-name bduEmailService --zip-file fileb://emailService.zip && rm ./emailService.zip",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
