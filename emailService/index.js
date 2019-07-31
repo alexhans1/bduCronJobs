@@ -168,19 +168,3 @@ exports.handler = async function execute() {
   await setLastMail();
   logSummary(emailArr);
 };
-
-const msg = {
-  to: "alexander.hans.mail@gmail.com",
-  from: "sender@example.org",
-  templateId: "d-e8c7e977147c40048b308050ecdff978",
-  dynamic_template_data: {
-    vorname: "Alex",
-    tournaments: [
-      { name: "Turnier 1", debt: 23.3452 },
-      { name: "Turnier Long 132", debt: 43.384 }
-    ],
-    total_debt: 23.3452,
-    transaction_purpose: "cscchwgudgc7rfg8gf37fg378 Furnsrwick"
-  }
-};
-sgMail.send(msg);
