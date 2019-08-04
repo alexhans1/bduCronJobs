@@ -1,7 +1,7 @@
 {
   "extends": ["eslint:recommended", "plugin:node/recommended"],
   "rules": {
-    "node/exports-style": ["error", "module.exports"],
+    "node/exports-style": 0,
     "node/file-extension-in-import": ["error", "always"],
     "node/prefer-global/buffer": ["error", "always"],
     "node/prefer-global/console": ["error", "always"],
