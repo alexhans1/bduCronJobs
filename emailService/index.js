@@ -4,12 +4,25 @@ sgMail.setApiKey(process.env.SENDGRID_KEY);
 let Bookshelf;
 const knex = require("knex")({
   client: "mysql",
-  connection: {
-    host: "us-cdbr-iron-east-03.cleardb.net",
-    user: "bb41eedfd379a8",
-    password: process.env.clearDB_password,
-    database: "heroku_9b6f95eb7a9adf8",
-    charset: "utf8"
+  connection:
+    process.env.NODE_ENV === "production"
+      ? {
+          host: "us-cdbr-iron-east-03.cleardb.net",
+          user: "bb41eedfd379a8",
+          password: process.env.clearDB_password,
+          database: "heroku_9b6f95eb7a9adf8",
+          charset: "utf8"
+        }
+      : {
+          host: "localhost",
+          user: "root",
+          password: process.env.localDBPassword,
+          database: "heroku_9b6f95eb7a9adf8",
+          charset: "utf8"
+        },
+  pool: {
+    max: 10,
+    min: 0
   },
   migrations: {
     tableName: "knex_migrations"
@@ -26,10 +39,15 @@ const successIDs = [];
 let totalErrors = 0;
 
 async function buildEmailArr() {
-  const emailArr = {};
   try {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     const result = await knex.raw(
-      "select u.id as userId, u.vorname, u.name, u.email, t.name as tournamentName, r.price_owed - r.price_paid as debt, r.id as registrationId from users as u join tournaments_users r on r.user_id = u.id join tournaments as t on t.id = r.tournament_id where u.last_mail < '2019-07-19' and r.price_paid is not null and r.price_owed is not null and r.price_owed != r.price_paid limit 10;"
+      `select u.id as userId, u.vorname, u.name, u.email, t.name as tournamentName, r.price_owed - r.price_paid as debt, r.id as registrationId from users as u join tournaments_users r on r.user_id = u.id join tournaments as t on t.id = r.tournament_id where u.last_mail < '${tenDaysAgo
+        .toISOString()
+        .substring(
+          0,
+          10
+        )}' and r.price_paid is not null and r.price_owed is not null and r.price_owed != r.price_paid;`
     );
     const debtfulRegistrations = JSON.parse(JSON.stringify(result))[0];
     return debtfulRegistrations.reduce(
@@ -162,7 +180,7 @@ function logSummary(emailArr) {
 }
 
 exports.handler = async function execute() {
-  console.log("\n ✔✔✔ Sending out Debt Emails ✔✔✔ \n");
+  console.log("\n 💌💌💌 Starting Email Service 💌💌💌 \n");
   const emailArr = await buildEmailArr();
   await sendDebtMails(emailArr);
   await setLastMail();
