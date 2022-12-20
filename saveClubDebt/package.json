@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "bookshelf": "^0.15.1",
-    "knex": "^0.19.1",
+    "knex": "^2.3.0",
     "mysql": "^2.17.1"
   }
 }
